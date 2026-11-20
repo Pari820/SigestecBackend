@@ -1,64 +1,69 @@
+# SIGESTEC — Backend
 
-> **Nueva revisión de seguridad de registros:** consulta [GUIA_GESTION_SEGURA.md](GUIA_GESTION_SEGURA.md) para ver las operaciones permitidas y los bloqueos de eliminación/cancelación que protegen los procesos.
-## Recuperación de contraseña por correo (versión actual)
+## Descripción
 
-Lee **[GUIA_RECUPERACION_CORREO_SMTP.md](GUIA_RECUPERACION_CORREO_SMTP.md)** antes de iniciar la recuperación. El usuario SMTP y su contraseña de aplicación se configuran en IntelliJ; el destinatario de pruebas es `sigestec835@gmail.com` con perfil `oracle-dev`.
+SIGESTEC es un sistema de gestión de servicios técnicos desarrollado para ACOIEL SAC. Permite administrar la información comercial, operativa y técnica de los servicios realizados por la empresa.
 
-> **NUEVO (Oracle + DBeaver + IntelliJ):** consulta [GUIA_ORACLE_DBEAVER_INTELLIJ.md](GUIA_ORACLE_DBEAVER_INTELLIJ.md).
-> Perfil `oracle-dev` = creacion automatica de tablas JPA SOLO en Oracle local de pruebas.
-> Perfil `oracle` = `validate`, para un ADS ya existente. La estructura Java original se conserva.
+## Tecnologías utilizadas
 
-# SIGESTEC — Backend Iteración 1 (CU01–CU06)
+- Java 21
+- Spring Boot 3.5.7
+- Spring Security y JWT
+- Spring Data JPA
+- Oracle Database
+- Maven
+- SMTP para recuperación de contraseñas
 
-Actualización del backend original para coincidir con el modelo UML y la BD ADS de ACOIELSAC. Sigue el patrón de LP: **Controller → Service → ServiceImpl → Repository → Entity**, con DTO, validaciones y JWT.
+## Módulos del sistema
 
-## Alcance implementado
+- Autenticación y gestión de usuarios
+- Clientes y catálogos
+- Solicitudes de servicio
+- Cotizaciones
+- Órdenes de compra
+- Órdenes de trabajo
+- Asignación de personal
+- Programación de servicios
+- Análisis de Trabajo Seguro (ATS)
+- Aprobaciones de ATS
+- Ejecución de servicios
+- Informes técnicos
+- Conformidad de servicios
+- Gestión de almacén
 
-Login, CU01 Registrar solicitud, CU02 Registrar cotización, CU03 Registrar orden de compra, CU04 Asignar personal, CU05 Programar orden de trabajo y CU06 Elaborar análisis de trabajo seguro. **NO se implementan CU07–CU12, aprobaciones de ATS, ejecución, informes ni movimientos de almacén**. Las tablas de almacén del esquema ADS permanecen intactas; solo se referencia `HERRAMIENTA_EQUIPO` desde CU06.
+## Arquitectura
 
-## Desarrollo local H2
+El backend está organizado en capas:
 
-Requisitos: Java 21, Maven 3.9+.
+- **Controller:** endpoints de la API REST.
+- **Service:** interfaces de servicios.
+- **ServiceImpl:** implementación de la lógica de negocio.
+- **Repository:** acceso a los datos.
+- **Entity:** entidades de persistencia.
+- **DTO:** transferencia y validación de datos.
+- **Config:** seguridad y configuración del sistema.
 
-```bash
-mvn clean test
-mvn spring-boot:run
-```
+## Configuración local
 
-Por defecto H2 utiliza `./sigestec-demo-v2` para evitar alterar la BD H2 anterior. La primera ejecución de demostración crea usuarios `gerente`, `supervisor`, `ssoma`, `admin` con clave `Cambiar2026!`. **Es una clave de demostración local; no debe usarse en despliegues reales**. Puede cambiarse con `SIGESTEC_DEMO_PASSWORD`. El archivo de la BD no debe subirse al repositorio.
+El proyecto utiliza el perfil `oracle-dev` para conectarse al entorno Oracle local de desarrollo.
 
-## Conexión a Oracle SIGESTEC_ADS
+Las credenciales de Oracle, JWT y SMTP se configuran mediante variables de entorno.
 
-1. Si **ya creaste las 45 tablas del esquema ADS**, **NO EJECUTES** `01_TABLAS_ITERACION1_SOLO_ESQUEMA_VACIO.sql`: este archivo es una alternativa para una BD nueva de Iteración 1. Usa `scripts/oracle/02_VALIDAR_TABLAS_ADS.sql` para revisar la estructura existente.
-2. Si tienes un usuario Oracle completamente **vacío** para CU01–CU06, puedes utilizar `01_TABLAS_ITERACION1_SOLO_ESQUEMA_VACIO.sql` (26 tablas); el modelo completo ADS de 45 tablas sigue siendo la referencia final.
-3. Ejecuta opcionalmente `03_USUARIOS_DEMO_OPCIONAL.sql` **solo en una base de prácticas**, para agregar credenciales demo si no hay usuarios.
-4. Define variables de entorno `ORACLE_URL`, `ORACLE_USER`, `ORACLE_PASSWORD`, `JWT_SECRET_BASE64`, `SIGESTEC_STORAGE_DIR` y `SIGESTEC_PUBLIC_BASE_URL`.
-5. Ejecuta `mvn spring-boot:run -Dspring-boot.run.profiles=oracle`.
+## Ejecución
 
-Con el perfil `oracle`, JPA utiliza `ddl-auto=validate` y **no altera las tablas**. Si la validación detecta diferencias entre el script ADS local y el mapeo JPA, hay que conciliar nombres y tipos antes de comenzar; no utilizar `update` para forzar cambios en Oracle.
-
-## Archivos adjuntos
-
-Los PDF y croquis se guardan en un directorio local externo a la BD (configurable con `SIGESTEC_STORAGE_DIR`). Oracle guarda solamente `url_archivo`, `url_archivo_adjunto`, etc. La URL apunta a `/api/v1/archivos/{uuid}`; este endpoint requiere JWT. La descarga de OC/PT/IPER/croquis conserva las rutas del frontend. En producción deberá configurarse almacenamiento persistente y respaldo (o sustituir el adaptador por S3/Drive con control de acceso).
-
-## Decisiones de correspondencia UML
-
-- `PERSONA_NATURAL` y `PERSONA_JURIDICA` pertenecen a `PERFIL`.
-- `EMPLEADO` → `PERSONA_NATURAL`; el usuario autenticado determina `id_empleado_registra` de forma segura.
-- `COTIZACION` → `DETALLE_COTIZACION`: 1 a N; una solicitud admite varias cotizaciones, pero solo una aceptada.
-- `ORDEN_COMPRA` → `DETALLE_ORDEN_COMPRA`: 1 a N, sus detalles pueden editarse según la documentación del cliente.
-- La OT se crea **PENDIENTE** en CU04 y pasa a **ASIGNADA** al guardar `ASIGNACION_PERSONAL`; en CU05 pasa a **PROGRAMADA**.
-- `DOCUMENTO_PLANIFICACION` tiene un registro por PT, IPER y croquis; no hay `BLOB`.
-- `ANALISIS_TRABAJO_SEGURO` incorpora `DETALLE_ANALISIS_RIESGO`, `ANALISIS_EQUIPO_PROTECCION_PERSONAL` y `ANALISIS_HERRAMIENTA_EQUIPO`.
-- El estado del análisis queda `PENDIENTE` de aprobación. No se implementa el CU07.
+1. Iniciar Oracle Database en Docker.
+2. Abrir el proyecto en IntelliJ IDEA.
+3. Configurar Java 21 y las dependencias Maven.
+4. Seleccionar el perfil `oracle-dev`.
+5. Configurar las variables de entorno necesarias.
+6. Ejecutar `SigestecApplication.java`.
 
 ## Pruebas
 
-`src/test/java/pe/edu/sigestec/Iteracion1Test.java` incluye pruebas H2 de cotización con detalle y flujo CU01–CU06 hasta ATS estructurado. No se ejecutaron con Maven en el entorno de generación por falta de Maven y dependencias Spring instaladas. Se verificó la sintaxis Java, un análisis de tipos del núcleo con stubs y la sintaxis TypeScript del frontend.
+El repositorio incluye pruebas automatizadas y una colección Postman para verificar las operaciones de la API REST.
 
-Consulta `../MATRIZ_CORRESPONDENCIA_UML_CODIGO.md` en el paquete combinado para los nombres y endpoints.
+## Proyecto
 
+Sistema de Gestión de Servicios Técnicos — SIGESTEC.
 
-## Ampliación CU07–CU12
-
-Consultar `README_ITERACION2_CU07_CU12.md` para instrucciones, reglas de negocio, scripts Oracle y pruebas.
+Desarrollado como proyecto académico de Ingeniería de Sistemas.
