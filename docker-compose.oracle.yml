@@ -1,0 +1,22 @@
+# OPCIONAL. Utilizar solo si todavia NO existe un contenedor Oracle utilizable.
+# Las variables se leen al ejecutar --env-file .env.oracle.local.
+services:
+  oracle-sigestec:
+    image: gvenzl/oracle-free:23-slim
+    container_name: sigestec-oracle-dev
+    environment:
+      ORACLE_PASSWORD: ${ORACLE_SYS_PASSWORD:?Definir ORACLE_SYS_PASSWORD}
+      APP_USER: SIGESTEC_ADS
+      APP_USER_PASSWORD: ${ORACLE_PASSWORD:?Definir ORACLE_PASSWORD}
+    ports:
+      - '${ORACLE_PORT:-1521}:1521'
+    volumes:
+      - sigestec-oracle-data:/opt/oracle/oradata
+    healthcheck:
+      test: ['CMD', 'healthcheck.sh']
+      interval: 20s
+      timeout: 10s
+      retries: 30
+      start_period: 90s
+volumes:
+  sigestec-oracle-data:

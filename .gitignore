@@ -1,0 +1,17 @@
+target/
+.idea/
+*.iml
+*.log
+sigestec-demo.mv.db
+sigestec-demo.trace.db
+sigestec-demo.lock.db
+.env
+
+# Oracle local / Docker / archivos generados
+.env.oracle.local
+.env.oracle.*.local
+archivos-sigestec/
+archivos-sigestec-test/
+sigestec-demo-v2*.db
+sigestec-demo-v2*.mv.db
+sigestec-demo-v2*.trace.db
