@@ -1,7 +1,5 @@
 package pe.edu.sigestec.service;
 
-import pe.edu.sigestec.entity.*;
-import pe.edu.sigestec.repository.*;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -18,8 +16,11 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
+import pe.edu.sigestec.entity.auth.RecuperacionClave;
+import pe.edu.sigestec.entity.auth.Usuario;
+import pe.edu.sigestec.repository.auth.RecuperacionClaveRepository;
+import pe.edu.sigestec.repository.auth.UsuarioRepository;
 
-/** Token de un solo uso. No contiene JWT, usuario ni contraseña. */
 @Service
 public class RecuperacionClaveService {
     private static final Logger LOG = LoggerFactory.getLogger(RecuperacionClaveService.class);
@@ -66,7 +67,7 @@ public class RecuperacionClaveService {
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
                     "Configura SMTP_USERNAME y SMTP_PASSWORD en IntelliJ");
         }
-        // Límite básico por IP; en un despliegue real usar un limitador compartido (Redis / gateway).
+
         LocalDateTime now = ahora();
         String ip = clientIp == null ? "unknown" : clientIp;
         LocalDateTime last = ipUltimaPeticion.get(ip);
@@ -95,14 +96,14 @@ public class RecuperacionClaveService {
         try {
             correo.enviarRecuperacion(destinatario, link, ttl);
         } catch (RuntimeException e) {
-            // No exponer API key, URL, enlace o si la cuenta existe al cliente.
+
             LOG.warn("No se pudo enviar el correo de recuperación. Comprueba la configuración SMTP, la contraseña de aplicación y la conexión. Tipo: {}",
                     e.getClass().getSimpleName());
             throw new ErrorEnvioRecuperacion();
         }
     }
 
-    /** La clase señala rollback del token sin exponer si el username existe. */
+
     private static class ErrorEnvioRecuperacion extends RuntimeException {}
 
     @Transactional
@@ -125,9 +126,9 @@ public class RecuperacionClaveService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Utiliza una contraseña diferente de la actual");
         }
         usuario.setClaveHash(encoder.encode(nueva));
-        usuario.invalidarSesiones(); // todos los JWT anteriores dejan de ser válidos
+        usuario.invalidarSesiones();
         usuarios.save(usuario);
-        recuperaciones.invalidarPendientes(usuario.getId(), ahora()); // incluso otros enlaces pendientes
+        recuperaciones.invalidarPendientes(usuario.getId(), ahora());
     }
 
     private static String hash(String raw) {

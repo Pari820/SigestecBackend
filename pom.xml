@@ -1,126 +1,151 @@
-<?xml version="1.0" encoding="UTF-8"?>
 
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
 
- <!-- Versión del modelo Maven -->
- <modelVersion>4.0.0</modelVersion>
+    <modelVersion>4.0.0</modelVersion>
 
- <!-- Configuración principal de Spring Boot -->
- <parent>
-  <groupId>org.springframework.boot</groupId>
-  <artifactId>spring-boot-starter-parent</artifactId>
-  <version>3.5.7</version>
-  <relativePath/>
- </parent>
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>3.5.7</version>
+        <relativePath/>
+    </parent>
 
- <!-- Información del proyecto -->
- <groupId>pe.edu.sigestec</groupId>
- <artifactId>sigestec-backend</artifactId>
- <version>1.0.0</version>
+    <groupId>pe.edu.sigestec</groupId>
+    <artifactId>sigestec-backend</artifactId>
+    <version>1.0.0</version>
 
- <!-- Versión de Java -->
- <properties>
-  <java.version>21</java.version>
- </properties>
+    <properties>
+        <java.version>21</java.version>
+        <sonar.projectKey>SIGESTEC_BACKEND</sonar.projectKey>
+        <sonar.projectName>SIGESTEC Backend</sonar.projectName>
+        <sonar.host.url>http://localhost:9000</sonar.host.url>
+        <sonar.coverage.jacoco.xmlReportPaths>
+            ${project.build.directory}/site/jacoco/jacoco.xml
+        </sonar.coverage.jacoco.xmlReportPaths>
+    </properties>
 
- <!-- Dependencias del proyecto -->
- <dependencies>
+    <dependencies>
 
-  <!-- Spring Boot Web: API REST -->
-  <dependency>
-   <groupId>org.springframework.boot</groupId>
-   <artifactId>spring-boot-starter-web</artifactId>
-  </dependency>
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <optional>true</optional>
+        </dependency>
 
-  <!-- Spring Data JPA: base de datos -->
-  <dependency>
-   <groupId>org.springframework.boot</groupId>
-   <artifactId>spring-boot-starter-data-jpa</artifactId>
-  </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
 
-  <!-- Validación de datos -->
-  <dependency>
-   <groupId>org.springframework.boot</groupId>
-   <artifactId>spring-boot-starter-validation</artifactId>
-  </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa</artifactId>
+        </dependency>
 
-  <!-- Seguridad y autenticación -->
-  <dependency>
-   <groupId>org.springframework.boot</groupId>
-   <artifactId>spring-boot-starter-security</artifactId>
-  </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
 
-  <!-- Envío de correos mediante SMTP -->
-  <dependency>
-   <groupId>org.springframework.boot</groupId>
-   <artifactId>spring-boot-starter-mail</artifactId>
-  </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security</artifactId>
+        </dependency>
 
-  <!-- Base de datos H2 -->
-  <dependency>
-   <groupId>com.h2database</groupId>
-   <artifactId>h2</artifactId>
-   <scope>runtime</scope>
-  </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-mail</artifactId>
+        </dependency>
 
-  <!-- Oracle Database -->
-  <dependency>
-   <groupId>com.oracle.database.jdbc</groupId>
-   <artifactId>ojdbc11</artifactId>
-   <scope>runtime</scope>
-  </dependency>
+        <dependency>
+            <groupId>com.oracle.database.jdbc</groupId>
+            <artifactId>ojdbc11</artifactId>
+            <scope>runtime</scope>
+        </dependency>
 
-  <!-- JWT: generación y validación de tokens -->
-  <dependency>
-   <groupId>io.jsonwebtoken</groupId>
-   <artifactId>jjwt-api</artifactId>
-   <version>0.12.6</version>
-  </dependency>
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-api</artifactId>
+            <version>0.12.6</version>
+        </dependency>
 
-  <dependency>
-   <groupId>io.jsonwebtoken</groupId>
-   <artifactId>jjwt-impl</artifactId>
-   <version>0.12.6</version>
-   <scope>runtime</scope>
-  </dependency>
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-impl</artifactId>
+            <version>0.12.6</version>
+            <scope>runtime</scope>
+        </dependency>
 
-  <dependency>
-   <groupId>io.jsonwebtoken</groupId>
-   <artifactId>jjwt-jackson</artifactId>
-   <version>0.12.6</version>
-   <scope>runtime</scope>
-  </dependency>
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-jackson</artifactId>
+            <version>0.12.6</version>
+            <scope>runtime</scope>
+        </dependency>
 
-  <!-- Pruebas de Spring Boot -->
-  <dependency>
-   <groupId>org.springframework.boot</groupId>
-   <artifactId>spring-boot-starter-test</artifactId>
-   <scope>test</scope>
-  </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
 
-  <!-- Pruebas de seguridad -->
-  <dependency>
-   <groupId>org.springframework.security</groupId>
-   <artifactId>spring-security-test</artifactId>
-   <scope>test</scope>
-  </dependency>
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-test</artifactId>
+            <scope>test</scope>
+        </dependency>
 
- </dependencies>
+    </dependencies>
 
- <!-- Configuración de compilación -->
- <build>
-  <plugins>
+    <build>
+        <plugins>
 
-   <!-- Plugin Maven de Spring Boot -->
-   <plugin>
-    <groupId>org.springframework.boot</groupId>
-    <artifactId>spring-boot-maven-plugin</artifactId>
-   </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <annotationProcessorPaths>
+                        <path>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                            <version>${lombok.version}</version>
+                        </path>
+                    </annotationProcessorPaths>
+                </configuration>
+            </plugin>
 
-  </plugins>
- </build>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>0.8.16</version>
+                <executions>
+
+                    <execution>
+                        <id>preparar-agente</id>
+                        <goals>
+                            <goal>prepare-agent</goal>
+                        </goals>
+                    </execution>
+
+                    <execution>
+                        <id>generar-reporte</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>report</goal>
+                        </goals>
+                    </execution>
+
+                </executions>
+            </plugin>
+
+        </plugins>
+    </build>
 
 </project>
-

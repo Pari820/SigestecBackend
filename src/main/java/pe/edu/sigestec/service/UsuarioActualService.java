@@ -2,9 +2,11 @@ package pe.edu.sigestec.service;
 
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
-import pe.edu.sigestec.repository.*;
-import pe.edu.sigestec.entity.*;
+import pe.edu.sigestec.entity.auth.Usuario;
+import pe.edu.sigestec.entity.personal.Empleado;
 import pe.edu.sigestec.exception.NegocioException;
+import pe.edu.sigestec.repository.auth.UsuarioRepository;
+import pe.edu.sigestec.repository.personal.EmpleadoRepository;
 
 @Service
 public class UsuarioActualService {

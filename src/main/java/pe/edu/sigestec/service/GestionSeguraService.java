@@ -2,28 +2,57 @@ package pe.edu.sigestec.service;
 
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
-import org.springframework.http.HttpStatus;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import pe.edu.sigestec.entity.*;
-import pe.edu.sigestec.exception.NegocioException;
-
 import java.math.BigDecimal;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
+import pe.edu.sigestec.auditoria.EventoAuditoria;
 
-/**
- * Correcciones y bajas controladas del proyecto. No realiza borrados en cascada.
- * Los movimientos, aprobaciones y documentos finales son históricos inmutables.
- * Todas las decisiones se verifican en el servidor (nunca solo en Angular).
- */
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
+import pe.edu.sigestec.entity.almacen.HerramientaEquipo;
+import pe.edu.sigestec.entity.almacen.Material;
+import pe.edu.sigestec.entity.almacen.MovimientoHerramientaEquipo;
+import pe.edu.sigestec.entity.almacen.MovimientoMaterialAlmacen;
+import pe.edu.sigestec.entity.asignaciones.AsignacionPersonal;
+import pe.edu.sigestec.entity.ats.AnalisisTrabajoSeguro;
+import pe.edu.sigestec.entity.ats.AprobacionAts;
+import pe.edu.sigestec.entity.auth.Usuario;
+import pe.edu.sigestec.entity.catalogos.PersonaJuridica;
+import pe.edu.sigestec.entity.catalogos.TipoServicio;
+import pe.edu.sigestec.entity.compras.OrdenCompra;
+import pe.edu.sigestec.entity.conformidades.ConformidadServicio;
+import pe.edu.sigestec.entity.cotizaciones.Cotizacion;
+import pe.edu.sigestec.entity.cotizaciones.DetalleCotizacion;
+import pe.edu.sigestec.entity.ejecuciones.EjecucionServicio;
+import pe.edu.sigestec.entity.ejecuciones.MaterialUtilizado;
+import pe.edu.sigestec.entity.informes.InformeTecnico;
+import pe.edu.sigestec.entity.orden_trabajo.DocumentoPlanificacion;
+import pe.edu.sigestec.entity.orden_trabajo.OrdenTrabajo;
+import pe.edu.sigestec.entity.personal.Empleado;
+import pe.edu.sigestec.entity.solicitudes.SolicitudServicio;
+import pe.edu.sigestec.exception.NegocioException;
+import pe.edu.sigestec.storage.ArchivoStorageService;
+
 @Service
 @Transactional
 public class GestionSeguraService {
+    @Autowired
+    private ApplicationEventPublisher auditoriaEventos;
+
     @PersistenceContext private EntityManager em;
+    private final ArchivoStorageService storage;
+
+    public GestionSeguraService(ArchivoStorageService storage) {
+        this.storage = storage;
+    }
+
 
     private static final Set<String> COMERCIAL = Set.of("GERENTE");
     private static final Set<String> PLANIFICACION = Set.of("SUPERVISOR");
@@ -53,7 +82,7 @@ public class GestionSeguraService {
     }
 
     private boolean existe(String entidad, String referencia, Long id) {
-        // La entidad y el atributo son constantes escritos en este archivo, nunca llegan del cliente.
+
         return em.createQuery("SELECT COUNT(x) FROM " + entidad + " x WHERE x." + referencia + ".id = :id", Long.class)
                 .setParameter("id", id).getSingleResult() > 0;
     }
@@ -183,7 +212,7 @@ public class GestionSeguraService {
                 InformeTecnico i = buscar(InformeTecnico.class, id, "Informe técnico");
                 exigir(!existe("ConformidadServicio", "informeTecnico", id),
                         "No se puede corregir: el informe ya tiene conformidad firmada");
-                // Una corrección de texto no reemplaza los PDF/evidencias ya enviados.
+
                 i.setDiagnostico(campo(d, "diagnostico", i.getDiagnostico(), true, 1500));
                 i.setTrabajosRealizados(campo(d, "trabajosRealizados", i.getTrabajosRealizados(), true, 2000));
                 i.setConclusiones(campo(d, "conclusiones", i.getConclusiones(), true, 1500));
@@ -196,10 +225,45 @@ public class GestionSeguraService {
             default -> throw NegocioException.noExiste("Módulo no reconocido");
         }
         em.flush();
+        auditoriaEventos.publishEvent(EventoAuditoria.de("REGISTRO_ACTUALIZADO", tipo, id,
+                "Corrección de registro del módulo " + tipo));
         return Map.of("mensaje", "Cambios guardados en Oracle");
     }
 
-    /** Restituye un registro cancelado o inactivado sin borrarlo ni duplicar sus claves externas. */
+
+    public Map<String, String> editarConDocumento(String tipo, Long id, Map<String, Object> datos,
+                                                     MultipartFile pdf, boolean quitar) {
+        editar(tipo, id, datos);
+        if (quitar && pdf != null && !pdf.isEmpty())
+            throw NegocioException.invalido("Elige quitar el documento o reemplazarlo, no ambos");
+        boolean cambiar = quitar || (pdf != null && !pdf.isEmpty());
+        if (!cambiar) return Map.of("mensaje", "Cambios guardados en Oracle");
+        switch (tipo) {
+            case "solicitudes" -> {
+                SolicitudServicio e = buscar(SolicitudServicio.class, id, "Solicitud");
+                e.setUrlArchivoAdjunto(quitar ? null : storage.guardar(pdf, true, true));
+            }
+            case "ats" -> {
+                AnalisisTrabajoSeguro e = buscar(AnalisisTrabajoSeguro.class, id, "ATS");
+                e.setUrlArchivo(quitar ? null : storage.guardar(pdf, true, true));
+            }
+            case "informes" -> {
+                InformeTecnico e = buscar(InformeTecnico.class, id, "Informe");
+                e.setUrlArchivo(quitar ? null : storage.guardar(pdf, true, true));
+            }
+            case "compras" -> {
+                if (quitar) throw NegocioException.conflicto("La orden de compra debe conservar un PDF; adjunta uno nuevo para reemplazarlo");
+                OrdenCompra e = buscar(OrdenCompra.class, id, "Orden de compra");
+                e.setUrlArchivo(storage.guardar(pdf, true, true));
+            }
+            default -> throw NegocioException.conflicto("Este módulo no admite reemplazo de documento desde la corrección");
+        }
+        em.flush();
+        auditoriaEventos.publishEvent(EventoAuditoria.de("DOCUMENTO_ACTUALIZADO", tipo, id,
+                "Documento reemplazado o retirado"));
+        return Map.of("mensaje", "Cambios y documento guardados en Oracle");
+    }
+
     public Map<String, String> reactivar(String tipo, Long id) {
         autorizar(tipo);
         String mensaje;
@@ -254,6 +318,7 @@ public class GestionSeguraService {
             default -> throw NegocioException.conflicto("No existe reactivación automática para documentos históricos o decisiones aprobadas");
         }
         em.flush();
+        auditoriaEventos.publishEvent(EventoAuditoria.de("REGISTRO_REACTIVADO", tipo, id, mensaje));
         return Map.of("mensaje",mensaje);
     }
 
@@ -282,7 +347,7 @@ public class GestionSeguraService {
                 } else { c.setEstado("RECHAZADA"); mensaje="Cotización rechazada sin eliminar el registro"; }
                 SolicitudServicio s=c.getSolicitudServicio();
                 if (!existe("OrdenCompra", "cotizacion", id)) {
-                    // Cuando no quedan otras cotizaciones activas, permitir nueva cotización de la solicitud.
+
                     boolean otras = em.createQuery("SELECT COUNT(x) FROM Cotizacion x WHERE x.solicitudServicio.id = :sid AND x.id <> :id AND x.estado <> 'RECHAZADA'",Long.class)
                             .setParameter("sid",s.getId()).setParameter("id",id).getSingleResult()>0;
                     if (!otras && "COTIZADA".equals(s.getEstado())) s.setEstado("PENDIENTE");
@@ -308,7 +373,7 @@ public class GestionSeguraService {
                         && !existe("MovimientoHerramientaEquipo", "ordenTrabajo",id),
                         "No se puede cancelar: la OT ya tiene ATS, documentos, movimientos de almacén o ejecución");
                 ot.setEstado("CANCELADA");
-                // Conservar las asignaciones, pero excluirlas de las validaciones futuras de cruce de horario.
+
                 mensaje="Orden de trabajo cancelada; se conservaron OC y asignaciones";
             }
             case "clientes" -> {
@@ -359,6 +424,9 @@ public class GestionSeguraService {
             default -> throw NegocioException.noExiste("Módulo no reconocido");
         }
         em.flush();
+        auditoriaEventos.publishEvent(EventoAuditoria.de(
+                "eliminar".equals(accion) ? "REGISTRO_ELIMINADO" : "REGISTRO_CANCELADO",
+                tipo, id, mensaje));
         return Map.of("mensaje", mensaje);
     }
 }

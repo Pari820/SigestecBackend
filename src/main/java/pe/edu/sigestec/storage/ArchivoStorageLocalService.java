@@ -1,32 +1,27 @@
 package pe.edu.sigestec.storage;
 
-import pe.edu.sigestec.exception.NegocioException;
+import java.io.*;
+import java.nio.file.*;
+import java.util.*;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
+import pe.edu.sigestec.exception.NegocioException;
 
-import java.nio.file.*;
-import java.io.*;
-import java.util.*;
-
-/**
- * Documentos fuera de la BD. Solo la URL queda persistida en Oracle.
- */
 @Service
 public class ArchivoStorageLocalService implements ArchivoStorageService {
     private final Path raiz;
+    private final Path raizAnterior;
     private final String urlBase;
 
     public ArchivoStorageLocalService(@Value("${app.storage.directory:./archivos-sigestec}") String dir,
-                                      @Value("${app.storage.public-base-url:http://localhost:8080}") String base) {
+                                      @Value("${app.storage.public-base-url:http://localhost:8080}") String base,
+                                      @Value("${app.storage.legacy-directory:}") String dirAnterior) {
         raiz = Path.of(dir).toAbsolutePath().normalize();
+        raizAnterior = dirAnterior == null || dirAnterior.isBlank()
+                ? null : Path.of(dirAnterior).toAbsolutePath().normalize();
         urlBase = base.replaceAll("/+$", "");
-        try {
-            Files.createDirectories(raiz);
-        } catch (IOException e) {
-            throw new IllegalStateException("No se pudo crear carpeta de documentos", e);
-        }
     }
 
     @Override
@@ -47,6 +42,7 @@ public class ArchivoStorageLocalService implements ArchivoStorageService {
             if (ext == null || (soloPdf && !ext.equals("pdf")))
                 throw NegocioException.invalido("Archivo inválido: use PDF" + (soloPdf ? "" : "/PNG/JPG"));
             String file = UUID.randomUUID() + "." + ext;
+            Files.createDirectories(raiz);
             Files.write(raiz.resolve(file), data, StandardOpenOption.CREATE_NEW);
             return urlBase + "/api/v1/archivos/" + file;
         } catch (IOException e) {
@@ -59,9 +55,14 @@ public class ArchivoStorageLocalService implements ArchivoStorageService {
         String file = url.substring(url.lastIndexOf('/') + 1);
         if (!file.matches("[a-f0-9-]{36}\\.(pdf|png|jpg)")) throw NegocioException.invalido("URL de archivo inválida");
         Path ruta = raiz.resolve(file).normalize();
-        if (!ruta.startsWith(raiz) || !Files.isRegularFile(ruta))
-            throw NegocioException.noExiste("Archivo no encontrado");
-        return ruta;
+        if (ruta.startsWith(raiz) && Files.isRegularFile(ruta)) return ruta;
+        // Compatibilidad con adjuntos registrados antes de cambiar de proyecto o activar Drive.
+        // Se busca únicamente en la carpeta anterior explícitamente configurada.
+        if (raizAnterior != null) {
+            Path antigua = raizAnterior.resolve(file).normalize();
+            if (antigua.startsWith(raizAnterior) && Files.isRegularFile(antigua)) return antigua;
+        }
+        throw NegocioException.noExiste("Archivo no encontrado");
     }
 
     @Override

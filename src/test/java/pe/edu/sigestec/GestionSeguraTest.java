@@ -1,6 +1,10 @@
 package pe.edu.sigestec;
 
+import static org.junit.jupiter.api.Assertions.*;
+import java.math.BigDecimal;
+import java.util.*;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -8,23 +12,22 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.transaction.annotation.Transactional;
-import pe.edu.sigestec.dto.Forms;
-import pe.edu.sigestec.entity.*;
+import pe.edu.sigestec.dto.cotizaciones.CotizacionRequestDTO;
+import pe.edu.sigestec.dto.cotizaciones.DetalleCotizacionRequestDTO;
+import pe.edu.sigestec.dto.solicitudes.SolicitudServicioRequestDTO;
+import pe.edu.sigestec.entity.cotizaciones.Cotizacion;
+import pe.edu.sigestec.entity.solicitudes.SolicitudServicio;
 import pe.edu.sigestec.exception.NegocioException;
-import pe.edu.sigestec.repository.*;
+import pe.edu.sigestec.repository.catalogos.PersonaJuridicaRepository;
+import pe.edu.sigestec.repository.catalogos.TipoServicioRepository;
+import pe.edu.sigestec.repository.solicitudes.SolicitudServicioRepository;
 import pe.edu.sigestec.service.*;
+import pe.edu.sigestec.service.GestionSeguraService;
+import pe.edu.sigestec.service.service.cotizaciones.CotizacionService;
+import pe.edu.sigestec.service.service.solicitudes.SolicitudServicioService;
 
-import java.math.BigDecimal;
-import java.util.*;
-
-import static org.junit.jupiter.api.Assertions.*;
-
-/** Pruebas con H2 temporal; nunca borra datos de Oracle. */
-@SpringBootTest(properties = {
-        "spring.datasource.url=jdbc:h2:mem:sigestec_gestion_segura;MODE=Oracle;DB_CLOSE_DELAY=-1",
-        "spring.jpa.hibernate.ddl-auto=create-drop", "app.demo.enabled=true",
-        "app.storage.directory=./archivos-sigestec-test"
-})
+@Disabled("Requiere una base Oracle exclusiva para pruebas de integración")
+@SpringBootTest
 @Transactional
 class GestionSeguraTest {
     @Autowired GestionSeguraService gestion;
@@ -42,13 +45,13 @@ class GestionSeguraTest {
 
     private SolicitudServicio solicitud() {
         rol("gerente", "GERENTE");
-        return solicitudes.registrar(new Forms.SolicitudForm(
+        return solicitudes.registrar(new SolicitudServicioRequestDTO(
                 clientes.findAll().get(0).getId(), tipos.findAll().get(0).getId(),
                 "Prueba operativa", "Observación inicial", null, null));
     }
-    private Forms.CotizacionForm cotizacion(Long solicitudId) {
-        return new Forms.CotizacionForm(solicitudId, "Prueba", "Test",
-                List.of(new Forms.DetalleCotizacionForm("Servicio", BigDecimal.ONE, new BigDecimal("200.00"), "SERVICIO")));
+    private CotizacionRequestDTO cotizacion(Long solicitudId) {
+        return new CotizacionRequestDTO(solicitudId, "Prueba", "Test",
+                List.of(new DetalleCotizacionRequestDTO("Servicio", BigDecimal.ONE, new BigDecimal("200.00"), "SERVICIO")));
     }
 
     @Test void permiteCorregirYEliminarSolicitudIndependiente() {

@@ -1,42 +1,97 @@
-package pe.edu.sigestec;
 
-import org.junit.jupiter.api.Test;
-import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mail.javamail.JavaMailSender;
-import pe.edu.sigestec.service.CorreoTransaccionalService;
-import org.mockito.ArgumentCaptor;
+package pe.edu.sigestec;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
+import jakarta.mail.Message;
+import jakarta.mail.Session;
+import jakarta.mail.internet.MimeMessage;
+import java.util.Properties;
+import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+import org.springframework.mail.javamail.JavaMailSender;
+import pe.edu.sigestec.service.CorreoTransaccionalService;
+
 class CorreoTransaccionalServiceTest {
+
     @Test
-    void generaMensajeDeRecuperacionConDestinatarioYEnlace() {
+    void enviaCorreoHtmlConDestinatario() throws Exception {
         JavaMailSender sender = mock(JavaMailSender.class);
-        CorreoTransaccionalService service = new CorreoTransaccionalService(sender,
-                "sigestec835@gmail.com", "contrasena-app-de-prueba", "sigestec835@gmail.com", "SIGESTEC");
-        String enlace = "http://localhost:4200/restablecer-clave?token=token-de-prueba";
+
+        MimeMessage mime = new MimeMessage(
+            Session.getInstance(new Properties())
+        );
+
+        when(sender.createMimeMessage()).thenReturn(mime);
+
+        CorreoTransaccionalService service =
+            new CorreoTransaccionalService(
+                sender,
+                "prueba@example.org",
+                "clave-de-aplicacion-de-prueba",
+                "prueba@example.org",
+                "SIGESTEC"
+            );
 
         assertTrue(service.configurado());
-        service.enviarRecuperacion("sigestec835@gmail.com", enlace, 15);
 
-        ArgumentCaptor<SimpleMailMessage> captura = ArgumentCaptor.forClass(SimpleMailMessage.class);
+        service.enviarRecuperacion(
+            "destino@example.org",
+            "http://localhost:4200/restablecer-clave?token=prueba",
+            15
+        );
+
+        ArgumentCaptor<MimeMessage> captura =
+            ArgumentCaptor.forClass(MimeMessage.class);
+
         verify(sender).send(captura.capture());
-        SimpleMailMessage mensaje = captura.getValue();
-        assertEquals("sigestec835@gmail.com", mensaje.getFrom());
-        assertArrayEquals(new String[]{"sigestec835@gmail.com"}, mensaje.getTo());
-        assertTrue(mensaje.getText().contains(enlace));
-        assertTrue(mensaje.getText().contains("15 minutos"));
+
+        MimeMessage mensaje = captura.getValue();
+
+        mensaje.saveChanges();
+
+        assertEquals(
+            "SIGESTEC | Restablecer contraseña",
+            mensaje.getSubject()
+        );
+
+        assertEquals(
+            "destino@example.org",
+            mensaje.getRecipients(Message.RecipientType.TO)[0].toString()
+        );
+
+        assertTrue(
+            mensaje.getContentType().toLowerCase().contains("multipart"),
+            "El correo debería tener contenido multipart, pero se obtuvo: "
+                + mensaje.getContentType()
+        );
     }
 
     @Test
     void noEnviaSiFaltanCredencialesSmtp() {
         JavaMailSender sender = mock(JavaMailSender.class);
-        CorreoTransaccionalService service = new CorreoTransaccionalService(sender,
-                "sigestec835@gmail.com", "", "sigestec835@gmail.com", "SIGESTEC");
+
+        CorreoTransaccionalService service =
+            new CorreoTransaccionalService(
+                sender,
+                "prueba@example.org",
+                "",
+                "prueba@example.org",
+                "SIGESTEC"
+            );
+
         assertFalse(service.configurado());
-        assertThrows(IllegalStateException.class,
-                () -> service.enviarRecuperacion("sigestec835@gmail.com", "http://localhost:4200/", 15));
+
+        assertThrows(
+            IllegalStateException.class,
+            () -> service.enviarRecuperacion(
+                "destino@example.org",
+                "http://localhost:4200/",
+                15
+            )
+        );
+
         verifyNoInteractions(sender);
     }
 }

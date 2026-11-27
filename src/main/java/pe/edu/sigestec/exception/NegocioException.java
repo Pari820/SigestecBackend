@@ -1,18 +1,15 @@
 package pe.edu.sigestec.exception;
 
-
+import lombok.Getter;
 import org.springframework.http.HttpStatus;
 
 public class NegocioException extends RuntimeException {
+    @Getter
     private final HttpStatus status;
 
     public NegocioException(HttpStatus status, String mensaje) {
         super(mensaje);
         this.status = status;
-    }
-
-    public HttpStatus getStatus() {
-        return status;
     }
 
     public static NegocioException noExiste(String msg) {

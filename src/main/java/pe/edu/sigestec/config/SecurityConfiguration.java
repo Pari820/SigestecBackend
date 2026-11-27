@@ -1,11 +1,13 @@
 package pe.edu.sigestec.config;
 
-import pe.edu.sigestec.entity.*;
-import pe.edu.sigestec.repository.*;
 import io.jsonwebtoken.JwtException;
 import jakarta.servlet.*;
 import jakarta.servlet.http.*;
+import java.util.*;
 import org.springframework.context.annotation.*;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.*;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
@@ -21,8 +23,13 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import org.springframework.stereotype.Component;
 import org.springframework.web.cors.*;
 import org.springframework.web.filter.OncePerRequestFilter;
-
-import java.util.*;
+import pe.edu.sigestec.entity.auth.Usuario;
+import pe.edu.sigestec.repository.auth.UsuarioRepository;
+import pe.edu.sigestec.repository.auth.UsuarioRolRepository;
+import pe.edu.sigestec.security.TokenService;
+import pe.edu.sigestec.dto.common.ErrorResponseDTO;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.time.Instant;
 
 @Configuration
 @EnableMethodSecurity
@@ -36,8 +43,11 @@ public class SecurityConfiguration {
     public UserDetailsService users(UsuarioRepository repo, UsuarioRolRepository roles) {
         return username -> {
             Usuario u = repo.findByNombreUsuario(username)
-                    .orElseThrow(() -> new UsernameNotFoundException("Usuario no encontrado"));
-            if (!"A".equals(u.getEstado())) throw new UsernameNotFoundException("Usuario inactivo");
+                .orElseThrow(() -> new UsernameNotFoundException("Credenciales inválidas"));
+
+            if (!"A".equals(u.getEstado())) {
+                throw new UsernameNotFoundException("Credenciales inválidas");
+            }
             List<SimpleGrantedAuthority> a = roles.findByUsuarioId(u.getId()).stream()
                     .filter(ur -> "A".equals(ur.getRol().getEstado()))
                     .map(ur -> new SimpleGrantedAuthority("ROLE_" + ur.getRol().getNombre())).toList();
@@ -50,6 +60,19 @@ public class SecurityConfiguration {
         DaoAuthenticationProvider p = new DaoAuthenticationProvider(users);
         p.setPasswordEncoder(encoder);
         return new ProviderManager(p);
+    }
+
+    /**
+     * JwtFilter debe ejecutarse exclusivamente dentro de la cadena de Spring Security.
+     * Al ser un Filter bean, Spring Boot también podría registrarlo como filtro del
+     * contenedor Servlet; se deshabilita ese registro automático para evitar doble
+     * ejecución y mantener un único punto de autenticación.
+     */
+    @Bean
+    public FilterRegistrationBean<JwtFilter> jwtFilterServletRegistration(JwtFilter jwt) {
+        FilterRegistrationBean<JwtFilter> registration = new FilterRegistrationBean<>(jwt);
+        registration.setEnabled(false);
+        return registration;
     }
 
     @Bean
@@ -66,20 +89,46 @@ public class SecurityConfiguration {
 
     @Bean
     public SecurityFilterChain security(
-            HttpSecurity http, JwtFilter jwt, CorsConfigurationSource corsConfigurationSource
+            HttpSecurity http, JwtFilter jwt, CorsConfigurationSource corsConfigurationSource,
+            ObjectMapper json
     ) throws Exception {
         return http.csrf(x -> x.disable())
                 .cors(cors -> cors.configurationSource(corsConfigurationSource))
                 .sessionManagement(x -> x.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .exceptionHandling(x -> x.authenticationEntryPoint((req, res, e) -> res.sendError(401, "Autenticación requerida")))
-                .authorizeHttpRequests(x -> x.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                .exceptionHandling(x -> x
+                        .authenticationEntryPoint((req, res, e) -> writeSecurityError(
+                                json, req, res, 401, "Autenticación requerida"))
+                        .accessDeniedHandler((req, res, e) -> writeSecurityError(
+                                json, req, res, 403, "No tiene permisos para realizar esta operación")))
+                .authorizeHttpRequests(x -> x
+                        // Un error lanzado durante el POST puede generar un ERROR dispatch a /error.
+                        // Ese despacho debe llegar al manejador real; no debe convertirse en un 401
+                        // que oculte la excepción original ni provocar el cierre de sesión en Angular.
+                        .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/api/v1/auth/login", "/api/v1/auth/recuperar-clave",
-                                "/api/v1/auth/restablecer-clave").permitAll().anyRequest().authenticated())
+                                "/api/v1/auth/restablecer-clave").permitAll()
+                        .anyRequest().authenticated())
                 .addFilterBefore(jwt, UsernamePasswordAuthenticationFilter.class).build();
+    }
+
+    /** Respuesta uniforme para errores de los filtros, antes de llegar a los Controllers. */
+    private static void writeSecurityError(ObjectMapper json, HttpServletRequest request,
+                                           HttpServletResponse response, int status, String mensaje)
+            throws java.io.IOException {
+        response.setStatus(status);
+        response.setCharacterEncoding("UTF-8");
+        response.setContentType("application/json");
+        json.writeValue(response.getWriter(), new ErrorResponseDTO(
+                Instant.now().toString(), status,
+                status == 401 ? "Unauthorized" : "Forbidden",
+                mensaje, request.getRequestURI(), null, null));
     }
 
     @Component
     public static class JwtFilter extends OncePerRequestFilter {
+        private static final Logger log = LoggerFactory.getLogger(JwtFilter.class);
+
         private final TokenService tokens;
         private final UserDetailsService users;
         private final UsuarioRepository usuarios;
@@ -109,6 +158,11 @@ public class SecurityConfiguration {
                     var a = new UsernamePasswordAuthenticationToken(u, null, u.getAuthorities());
                     org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(a);
                 } catch (JwtException | org.springframework.security.core.AuthenticationException e) {
+                    // No registrar nunca el token. El motivo sí permite diagnosticar
+                    // firma inválida, expiración, sesión revocada o cuenta inactiva.
+                    log.warn("JWT rechazado para {} {}: {} ({})",
+                            req.getMethod(), req.getRequestURI(), e.getMessage(),
+                            e.getClass().getSimpleName());
                     org.springframework.security.core.context.SecurityContextHolder.clearContext();
                 }
             }

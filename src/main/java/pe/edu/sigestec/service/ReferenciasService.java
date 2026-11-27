@@ -1,9 +1,17 @@
 package pe.edu.sigestec.service;
 
 import org.springframework.stereotype.Service;
-import pe.edu.sigestec.entity.*;
-import pe.edu.sigestec.repository.*;
+import pe.edu.sigestec.entity.compras.OrdenCompra;
+import pe.edu.sigestec.entity.cotizaciones.Cotizacion;
+import pe.edu.sigestec.entity.orden_trabajo.OrdenTrabajo;
+import pe.edu.sigestec.entity.personal.Empleado;
+import pe.edu.sigestec.entity.solicitudes.SolicitudServicio;
 import pe.edu.sigestec.exception.NegocioException;
+import pe.edu.sigestec.repository.compras.OrdenCompraRepository;
+import pe.edu.sigestec.repository.cotizaciones.CotizacionRepository;
+import pe.edu.sigestec.repository.orden_trabajo.OrdenTrabajoRepository;
+import pe.edu.sigestec.repository.personal.EmpleadoRepository;
+import pe.edu.sigestec.repository.solicitudes.SolicitudServicioRepository;
 
 @Service
 public class ReferenciasService {

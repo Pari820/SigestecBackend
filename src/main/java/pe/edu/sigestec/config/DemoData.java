@@ -1,18 +1,32 @@
 package pe.edu.sigestec.config;
 
-import pe.edu.sigestec.entity.*;
-import pe.edu.sigestec.repository.*;
+import java.time.LocalDate;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.*;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.annotation.Transactional;
+import pe.edu.sigestec.entity.auth.Perfil;
+import pe.edu.sigestec.entity.auth.Rol;
+import pe.edu.sigestec.entity.auth.Usuario;
+import pe.edu.sigestec.entity.auth.UsuarioRol;
+import pe.edu.sigestec.entity.catalogos.PersonaJuridica;
+import pe.edu.sigestec.entity.catalogos.PersonaNatural;
+import pe.edu.sigestec.entity.catalogos.TipoServicio;
+import pe.edu.sigestec.entity.personal.Cargo;
+import pe.edu.sigestec.entity.personal.Empleado;
+import pe.edu.sigestec.entity.personal.Tecnico;
+import pe.edu.sigestec.repository.auth.PerfilRepository;
+import pe.edu.sigestec.repository.auth.RolRepository;
+import pe.edu.sigestec.repository.auth.UsuarioRepository;
+import pe.edu.sigestec.repository.auth.UsuarioRolRepository;
+import pe.edu.sigestec.repository.catalogos.PersonaJuridicaRepository;
+import pe.edu.sigestec.repository.catalogos.PersonaNaturalRepository;
+import pe.edu.sigestec.repository.catalogos.TipoServicioRepository;
+import pe.edu.sigestec.repository.personal.CargoRepository;
+import pe.edu.sigestec.repository.personal.EmpleadoRepository;
+import pe.edu.sigestec.repository.personal.TecnicoRepository;
 
-import java.time.LocalDate;
-
-/**
- * Datos de muestra únicamente en H2 cuando SIGESTEC_DEMO=true. No ejecutar en Oracle real.
- */
 @Configuration
 public class DemoData {
     @Bean
@@ -127,7 +141,7 @@ public class DemoData {
             }
         }
 
-        /** Amplía una base H2 creada en la Iteración 1 sin borrar cuentas ni registros. */
+
         private void asegurarAlmacenero() {
             if (usuarios.findByNombreUsuario("almacenero").isPresent()) return;
             Cargo cargo = cargos.findByNombreIgnoreCase("ALMACENERO").orElseGet(() -> {
